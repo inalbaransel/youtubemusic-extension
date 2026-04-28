@@ -42,15 +42,11 @@ document.addEventListener('DOMContentLoaded', () => {
             keyDisplay.style.display = 'block';
             if (userIdInput) userIdInput.value = userId || 'Yükleniyor...';
 
-            authBadge.textContent = 'Aktif';
-            authBadge.className = 'status-pill active';
             authDesc.textContent = 'Müziğin anlık olarak sunucuna aktarılıyor.';
             startPreview(userId);
         } else {
             authForm.style.display = 'block';
             keyDisplay.style.display = 'none';
-            authBadge.textContent = 'Misafir';
-            authBadge.className = 'status-pill guest';
             authDesc.textContent = 'Müziğini dünyayla paylaşmak için giriş yap.';
             stopPreview();
         }
@@ -114,11 +110,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    document.getElementById('copyBtn').addEventListener('click', () => {
-        navigator.clipboard.writeText(userIdInput.value).then(() => {
-            showStatus('ID Kopyalandı');
+    const copyBtn = document.getElementById('copyBtn');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+            const originalSVG = copyBtn.innerHTML;
+            const successSVG = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+            `;
+
+            navigator.clipboard.writeText(userIdInput.value).then(() => {
+                copyBtn.innerHTML = successSVG;
+                copyBtn.style.background = 'var(--green-bg)';
+                
+                showStatus('ID Kopyalandı', 'var(--green)');
+
+                setTimeout(() => {
+                    copyBtn.innerHTML = originalSVG;
+                    copyBtn.style.background = '';
+                }, 2000);
+            });
         });
-    });
+    }
 
     // ─── Live Preview ───
     function startPreview(userId) {
@@ -217,8 +231,9 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('monthlyCount').textContent = data.monthlyCount;
 
             const recentHistory = document.getElementById('recentHistory');
-            recentHistory.innerHTML = data.history.length > 0
-                ? data.history.map(item => `
+            const slicedHistory = data.history.slice(0, 5); // Sadece son 5 şarkı
+            recentHistory.innerHTML = slicedHistory.length > 0
+                ? slicedHistory.map(item => `
                     <div class="stat-row">
                         <img src="${item.artwork || ''}" onerror="this.style.display='none'">
                         <div class="stat-info">

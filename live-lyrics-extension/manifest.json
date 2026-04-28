@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "YT Music Metadata API",
+  "name": "YTMusic API",
   "version": "1.0.0",
-  "description": "YouTube Music'ten şarkı bilgilerini (ad, sanatçı, süre, kapak vb.) yakalayan API entegrasyonu.",
+  "description": "YouTube Music üzerinden anlık metadata ve dinleme istatistikleri sunan API servisi.",
   "permissions": [
     "storage",
     "activeTab"

@@ -202,8 +202,15 @@ app.get('/api/stats/:userId', async (req, res) => {
     const { userId } = req.params;
 
     try {
-        // 1. Son 10 Şarkı (Benzersiz ve Dinlenme Sayılarıyla)
-        const last10 = await prisma.$queryRaw`
+        // Zaman sınırlarını belirle
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        // 1. Son Dinlenenler (Zaman sınırı yok, sadece son kayıtlar)
+        const history = await prisma.$queryRaw`
             SELECT title, artist, artwork, MAX("playedAt") as "playedAt", COUNT(*)::int as count 
             FROM "SongLog" 
             WHERE "userId" = ${userId} 
@@ -212,38 +219,36 @@ app.get('/api/stats/:userId', async (req, res) => {
             LIMIT 10
         `;
 
-        // 2. En Çok Dinlenen Şarkılar (Top 5)
+        // 2. En Çok Dinlenen Şarkılar (Son 7 Gün)
         const topSongs = await prisma.$queryRaw`
             SELECT title, artist, artwork, COUNT(*)::int as count 
             FROM "SongLog" 
-            WHERE "userId" = ${userId} 
+            WHERE "userId" = ${userId} AND "playedAt" >= ${sevenDaysAgo}
             GROUP BY title, artist, artwork 
             ORDER BY count DESC 
             LIMIT 5
         `;
 
-        // 3. En Sevilen Sanatçılar (Top 3)
+        // 3. En Sevilen Sanatçılar (Son 7 Gün)
         const topArtists = await prisma.$queryRaw`
             SELECT artist, COUNT(*)::int as count 
             FROM "SongLog" 
-            WHERE "userId" = ${userId} 
+            WHERE "userId" = ${userId} AND "playedAt" >= ${sevenDaysAgo}
             GROUP BY artist 
             ORDER BY count DESC 
             LIMIT 3
         `;
 
-        // 4. Aylık Dinleme Sayısı
-        const now = new Date();
-        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        // 4. Son 30 Günlük Toplam Dinleme
         const monthlyCount = await prisma.songLog.count({
             where: {
                 userId,
-                playedAt: { gte: firstDayOfMonth }
+                playedAt: { gte: thirtyDaysAgo }
             }
         });
 
         res.json({
-            history: last10,
+            history,
             topSongs,
             topArtists,
             monthlyCount

@@ -181,6 +181,11 @@
             transition: all 0.2s ease;
         }
 
+        /* İkonlu inputlar için sağ boşluk */
+        .input-wrapper input {
+            padding-right: 44px !important;
+        }
+
         input::placeholder {
             color: var(--text-tertiary);
         }
@@ -599,19 +604,32 @@
             border-radius: 2px;
         }
 
-        /* ─── Status Toast ─── */
+        /* ─── Status Toast (Floating iOS Style) ─── */
         #status {
-            text-align: center;
-            font-size: 13px;
-            font-weight: 500;
-            min-height: 18px;
-            color: var(--text-primary);
-            opacity: 0;
-            transition: opacity 0.2s ease;
-            margin-top: 12px;
+            position: fixed;
+            top: -50px; /* Başlangıçta ekran dışında */
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(29, 29, 31, 0.9);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            z-index: 10000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
         #status.visible {
+            top: 20px; /* Ekrana giriş yap */
             opacity: 1;
         }
 
@@ -642,8 +660,7 @@
     <!-- ─── Header ─── -->
     <div class="header">
         <div class="header-left">
-            <span class="logo">YT Music</span>
-            <span class="status-pill guest" id="authBadge">Misafir</span>
+            <span class="logo">YTMusic API</span>
         </div>
         <label class="toggle" title="Sistemi Aç / Kapat">
             <input type="checkbox" id="systemToggle" checked>
