@@ -1,0 +1,11 @@
+node_modules/
+.env
+.DS_Store
+dist/
+*.log
+
+# Backend specific
+saas-backend/node_modules/
+saas-backend/.env
+saas-backend/prisma/*.db
+saas-backend/prisma/*.db-journal

@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YT Music Metadata API</title>
+    <style>
+        :root {
+            --primary: #fa243c; /* Apple Music Pink/Red */
+            --primary-glow: rgba(250, 36, 60, 0.15);
+            --bg: #ffffff;
+            --bg-secondary: #f5f5f7;
+            --card-bg: #ffffff;
+            --border: #e5e5ea;
+            --text-main: #1d1d1f;
+            --text-dim: #86868b;
+            --input-bg: #f5f5f7;
+            --danger: #ff3b30;
+            --danger-bg: rgba(255, 59, 48, 0.1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text-main);
+            width: 320px;
+            padding: 24px;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        h2 {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .badge {
+            background: var(--bg-secondary);
+            color: var(--text-dim);
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .description {
+            font-size: 14px;
+            color: var(--text-dim);
+            line-height: 1.4;
+            margin-bottom: 24px;
+        }
+
+        .api-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .label {
+            font-size: 12px;
+            color: var(--text-dim);
+            font-weight: 500;
+            margin-bottom: -4px;
+            margin-left: 4px;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid transparent;
+            background: var(--input-bg);
+            color: var(--text-main);
+            font-size: 15px;
+            border-radius: 12px;
+            outline: none;
+            box-sizing: border-box;
+            transition: all 0.2s ease;
+        }
+        
+        input::placeholder {
+            color: #aeaeb2;
+        }
+
+        input:focus {
+            background: var(--card-bg);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-glow);
+        }
+
+        input#apiKey {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 13px;
+            text-align: left;
+            color: var(--text-dim);
+            letter-spacing: 0.5px;
+            padding-right: 44px; /* Space for the eye icon */
+        }
+
+        .input-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            padding: 4px;
+            cursor: pointer;
+            color: var(--text-dim);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .toggle-password:hover {
+            background: rgba(0, 0, 0, 0.05);
+            color: var(--text-main);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px;
+            background: var(--bg-secondary);
+            color: var(--text-main);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        button:hover {
+            filter: brightness(0.95);
+        }
+        
+        button:active {
+            transform: scale(0.97);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            filter: brightness(1.1);
+        }
+        
+        .btn-danger {
+            background: var(--danger-bg);
+            color: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: rgba(255, 59, 48, 0.15);
+            filter: none;
+        }
+
+        /* Apple Music Style Player Widget */
+        #previewContainer {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 16px;
+            margin-top: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .player-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .album-art {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #e5e5ea 0%, #f5f5f7 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            border: 1px solid rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+
+        .album-art img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .track-info {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 2px;
+        }
+
+        #previewTitle {
+            font-size: 15px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-main);
+        }
+
+        #previewArtist {
+            font-size: 13px;
+            color: var(--primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .progress-container {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 4px;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        #previewProgress {
+            width: 0%;
+            height: 100%;
+            background: var(--text-main); /* Apple Music uses dark gray/black for progress on light mode */
+            transition: width 0.3s linear;
+            border-radius: 2px;
+        }
+
+        #previewTime {
+            font-size: 11px;
+            color: var(--text-dim);
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            font-weight: 500;
+        }
+
+        /* Geliştirici Rehberi Stilleri */
+        .dev-guide {
+            margin-top: 16px;
+            background: var(--card-bg);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .dev-guide-toggle {
+            width: 100%;
+            padding: 14px 16px;
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            border-radius: 0;
+            justify-content: flex-start;
+        }
+        
+        .dev-guide-toggle:hover {
+            background: var(--bg-secondary);
+            filter: none;
+        }
+
+        .dev-guide-content {
+            padding: 0 16px 16px;
+            display: none;
+            font-size: 12px;
+            color: var(--text-dim);
+            border-top: 1px solid var(--border);
+            margin-top: 4px;
+        }
+
+        .dev-guide-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .dev-guide-content p {
+            margin: 12px 0 8px;
+            line-height: 1.4;
+        }
+
+        .code-block {
+            background: var(--input-bg);
+            padding: 10px;
+            border-radius: 8px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 11px;
+            color: var(--text-main);
+            overflow-x: auto;
+            border: 1px solid var(--border);
+        }
+        
+        pre.code-block {
+            margin: 0;
+            white-space: pre-wrap;
+        }
+
+        #status {
+            margin-top: 16px;
+            font-size: 13px;
+            text-align: center;
+            min-height: 18px;
+            font-weight: 500;
+        }
+
+        .footer {
+            margin-top: 24px;
+            text-align: center;
+            font-size: 12px;
+            color: #aeaeb2;
+            font-weight: 500;
+        }
+        /* Switch CSS */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 36px;
+            height: 20px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 20px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #34c759; /* Apple Green */
+        }
+
+        input:focus + .slider {
+            box-shadow: 0 0 1px #34c759;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(16px);
+        }
+
+        /* Stats Styles */
+        .stat-section {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .stat-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .stat-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            font-size: 12px;
+        }
+
+        .stat-row img {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            object-fit: cover;
+        }
+
+        .stat-info {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .stat-title {
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .stat-subtitle {
+            font-size: 10px;
+            color: var(--text-dim);
+        }
+
+        .stat-count {
+            font-weight: 700;
+            color: var(--primary);
+            font-size: 11px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: var(--primary-glow);
+            border-radius: 10px;
+            color: var(--primary);
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h2>YT Music</h2>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <label class="switch" title="Sistemi Aç/Kapat">
+                <input type="checkbox" id="systemToggle" checked>
+                <span class="slider round"></span>
+            </label>
+            <span class="badge" id="authBadge">Misafir</span>
+        </div>
+    </div>
+
+    <div class="description" id="authDesc">
+        Müziğini dünyayla paylaşmak için giriş yap veya hesap oluştur.
+    </div>
+
+    <!-- Giriş/Kayıt Formu -->
+    <div class="api-container" id="authForm">
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            <input type="email" id="email" placeholder="E-posta adresi">
+            <input type="password" id="password" placeholder="Şifre">
+        </div>
+        
+        <div class="btn-group" style="margin-top: 8px;">
+            <button id="loginBtn">Giriş Yap</button>
+            <button id="registerBtn" class="btn-primary">Kayıt Ol</button>
+        </div>
+    </div>
+
+    <!-- API Key Görüntüleme -->
+    <div class="api-container" id="keyDisplay" style="display: none;">
+        <label class="label">API Anahtarı (Gizli - Sadece Eklenti İçin)</label>
+        <div class="input-wrapper">
+            <input type="password" id="apiKey" readonly>
+            <button type="button" id="toggleApiKey" class="toggle-password" title="Göster/Gizle">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="eye-icon">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+            </button>
+        </div>
+
+        <label class="label">User ID (Açık - Web Siten İçin)</label>
+        <div class="input-wrapper">
+            <input type="text" id="userIdDisplay" readonly style="font-family: ui-monospace, monospace; font-size: 12px; color: var(--text-main);">
+        </div>
+        
+        <div class="btn-group">
+            <button id="copyBtn">Kopyala</button>
+            <button id="logoutBtn" class="btn-danger">Çıkış Yap</button>
+        </div>
+
+        <!-- Canlı Önizleme Widget'ı -->
+        <div id="previewContainer">
+            <div class="player-header">
+                <div class="album-art" id="previewArtworkContainer">
+                    <img id="previewArtwork" style="display: none;">
+                    <span id="previewPlaceholder">🎵</span>
+                </div>
+                <div class="track-info">
+                    <div id="previewTitle">Müzik Bekleniyor...</div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div id="previewArtist">YT Music'te şarkı açın</div>
+                        <div id="previewTotalListens" style="font-size: 10px; color: var(--text-dim); background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px; display: none;">0x dinlendi</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="progress-container">
+                <div class="progress-bar-bg">
+                    <div id="previewProgress"></div>
+                </div>
+                <div id="previewTime">0:00 / 0:00</div>
+            </div>
+        </div>
+
+        <!-- Müzik İstatistikleri -->
+        <div class="dev-guide" id="statsContainer">
+            <button class="dev-guide-toggle" id="statsToggleBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
+                Müzik İstatistikleri (Beta)
+            </button>
+            <div class="dev-guide-content" id="statsContent">
+                <div class="stat-item" style="margin-top: 12px;">
+                    <span>Bu Ay Toplam Dinleme</span>
+                    <span id="monthlyCount">0</span>
+                </div>
+
+                <div class="stat-section">
+                    <div class="label">Son Dinlediklerin</div>
+                    <div id="recentHistory" class="stat-list">
+                        <div class="stat-row">Henüz veri yok...</div>
+                    </div>
+                </div>
+
+                <div class="stat-section">
+                    <div class="label">En Çok Dinlediklerin</div>
+                    <div id="topSongs" class="stat-list">
+                        <div class="stat-row">Henüz veri yok...</div>
+                    </div>
+                </div>
+
+                <div class="stat-section" style="margin-bottom: 8px;">
+                    <div class="label">En Sevilen Sanatçılar</div>
+                    <div id="topArtists" class="stat-list">
+                        <div class="stat-row">Henüz veri yok...</div>
+                    </div>
+                </div>
+                
+                <p style="font-size: 10px; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px;">
+                    * Veriler dinlediğiniz her yeni şarkıda otomatik olarak güncellenir.
+                </p>
+            </div>
+        </div>
+
+        <!-- Geliştirici Rehberi -->
+        <div class="dev-guide">
+            <button class="dev-guide-toggle" id="devGuideBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                Geliştirici Rehberi
+            </button>
+            <div class="dev-guide-content" id="devGuideContent">
+                <p>Verileri kendi web sitende güvenli bir şekilde göstermek için <strong>User ID</strong>'ni kullanmalısın:</p>
+                <div class="code-block">
+                    GET /api/status/<strong>[USER_ID]</strong>
+                </div>
+                <p>İstatistikler için:</p>
+                <div class="code-block">
+                    GET /api/stats/<strong>[USER_ID]</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Nasıl Çalışır? -->
+        <div class="dev-guide" style="margin-top: 12px; background: var(--primary-glow); border-color: transparent;">
+            <button class="dev-guide-toggle" id="howItWorksBtn" style="color: var(--primary);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                Sistem Nasıl Çalışır?
+            </button>
+            <div class="dev-guide-content" id="howItWorksContent">
+                <p style="color: var(--text-main); font-weight: 500;">Müzik Takibi:</p>
+                <ul style="padding-left: 16px; margin: 0; font-size: 11px;">
+                    <li>Dinlediğiniz her şarkı otomatik olarak veritabanına kaydedilir.</li>
+                    <li>Sistem, şarkı adını ve sanatçıyı algıladığında yeni bir kayıt oluşturur.</li>
+                    <li>Bu verilerle en çok dinlediğiniz sanatçıları ve şarkıları görebilirsiniz.</li>
+                    <li>Kendi web sitenizde "Şu an ne dinliyorum?" widget'ı yapabilirsiniz.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div id="status"></div>
+
+    <div class="footer">
+        Crafted By Baransel
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
+

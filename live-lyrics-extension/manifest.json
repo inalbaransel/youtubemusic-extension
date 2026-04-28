@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "YT Music Metadata API",
+  "version": "1.0.0",
+  "description": "YouTube Music'ten şarkı bilgilerini (ad, sanatçı, süre, kapak vb.) yakalayan API entegrasyonu.",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "*://music.youtube.com/*",
+    "https://api.music.baransel.site/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "YT Music Metadata API"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://music.youtube.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}
+
