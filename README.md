@@ -117,46 +117,6 @@ setInterval(getNowPlaying, 3000);
 
 ---
 
-## Kurulum
-
-### Backend
-
-```bash
-cd saas-backend
-npm install
-```
-
-`.env` dosyası oluşturun:
-
-```
-DATABASE_URL="postgresql://user:pass@localhost:5432/ytmusic_db"
-JWT_SECRET="rastgele-guclu-bir-anahtar"
-PORT=3000
-```
-
-Veritabanını hazırlayın ve sunucuyu başlatın:
-
-```bash
-npx prisma migrate dev --name init
-npm run dev
-```
-
-### Chrome Eklentisi
-
-1. `live-lyrics-extension/` klasöründeki `background.js`, `popup.js` ve `manifest.json` dosyalarındaki API adreslerini kendi sunucunuza göre güncelleyin.
-2. Chrome'da `chrome://extensions` adresine gidin, geliştirici modunu açın.
-3. "Paketlenmemiş uzantı yükle" ile `live-lyrics-extension` klasörünü seçin.
-
-### Discord Bridge (Opsiyonel)
-
-```bash
-cd discord-bridge
-npm install
-```
-
-`.env` dosyasına User ID'nizi yazın, `index.js`'teki API adresini ve Discord Application ID'yi güncelleyin, ardından `node index.js` ile çalıştırın.
-
----
 
 ## Teknolojiler
 
