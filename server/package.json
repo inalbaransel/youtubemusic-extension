@@ -1,0 +1,21 @@
+{
+  "name": "ytmusic-now-playing-server",
+  "version": "2.0.0",
+  "description": "YouTube Music now-playing & listening stats API (single user)",
+  "type": "module",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch --env-file-if-exists=.env src/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.1.0",
+    "postgres": "^3.4.7",
+    "zod": "^4.1.0"
+  }
+}

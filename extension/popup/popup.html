@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8">
+    <title>YT Music Now Playing</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <!-- ─── Kurulum ─── -->
+    <section id="setup" class="view" hidden>
+        <div class="setup-hero">
+            <img src="../icons/128.png" width="56" height="56" alt="">
+            <h1>Sunucuna bağlan</h1>
+            <p>Coolify'da tanımladığın <code>INGEST_TOKEN</code> değerini gir. Dinlediklerin sadece kendi sunucuna gider.</p>
+        </div>
+        <form id="setupForm" class="form" novalidate>
+            <label class="label">Sunucu adresi
+                <input id="serverInput" type="url" required spellcheck="false" autocomplete="off">
+            </label>
+            <label class="label">Token
+                <span class="input-row">
+                    <input id="tokenInput" type="password" required spellcheck="false" autocomplete="off">
+                    <button type="button" class="icon-btn" id="revealToken" title="Göster" aria-label="Token'ı göster">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                </span>
+            </label>
+            <p class="form-error" id="setupError" role="alert"></p>
+            <button class="btn primary" id="connectBtn" type="submit">Bağlan</button>
+        </form>
+    </section>
+
+    <!-- ─── Ana ekran ─── -->
+    <section id="main" class="view" hidden>
+        <header class="topbar">
+            <div class="sync" id="sync" title="">
+                <span class="dot"></span>
+                <span id="syncText">Bağlanıyor…</span>
+            </div>
+            <label class="switch" title="Gönderimi aç/kapat">
+                <input type="checkbox" id="enabledToggle">
+                <span class="switch-track"></span>
+            </label>
+        </header>
+
+        <nav class="tabs" role="tablist">
+            <button role="tab" data-tab="now" aria-selected="true">Şimdi</button>
+            <button role="tab" data-tab="stats" aria-selected="false">İstatistik</button>
+            <button role="tab" data-tab="settings" aria-selected="false">Ayarlar</button>
+        </nav>
+
+        <div class="panels">
+            <!-- Şimdi -->
+            <div class="panel" data-panel="now">
+                <div class="np">
+                    <div class="np-bg" id="npBg"></div>
+                    <a class="np-art" id="npArtLink" target="_blank" rel="noopener">
+                        <img id="npArt" alt="" hidden>
+                        <span class="np-art-ph" id="npArtPh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
+                    </a>
+                    <div class="np-label" id="npLabel">
+                        <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>
+                        <span id="npLabelText">Bekleniyor</span>
+                    </div>
+                    <div class="np-title" id="npTitle">Henüz bir şey çalmadı</div>
+                    <div class="np-artist" id="npArtist">YT Music'te bir şarkı aç</div>
+                    <div class="np-progress">
+                        <div class="np-bar"><div class="np-fill" id="npFill"></div></div>
+                        <div class="np-times"><span id="npPos">0:00</span><span id="npListens"></span><span id="npDur">0:00</span></div>
+                    </div>
+                </div>
+
+                <h2 class="section-title">Son dinlenenler</h2>
+                <ul class="list" id="recentList"></ul>
+            </div>
+
+            <!-- İstatistik -->
+            <div class="panel" data-panel="stats" hidden>
+                <div class="segmented" id="rangeSeg" role="radiogroup">
+                    <button data-range="7d" aria-checked="true" role="radio">7 gün</button>
+                    <button data-range="30d" aria-checked="false" role="radio">30 gün</button>
+                    <button data-range="365d" aria-checked="false" role="radio">1 yıl</button>
+                    <button data-range="all" aria-checked="false" role="radio">Tümü</button>
+                </div>
+
+                <div class="kpis">
+                    <div class="kpi"><span class="kpi-v" id="kPlays">–</span><span class="kpi-l">dinleme</span></div>
+                    <div class="kpi"><span class="kpi-v" id="kTime">–</span><span class="kpi-l">dinleme süresi</span></div>
+                    <div class="kpi"><span class="kpi-v" id="kTracks">–</span><span class="kpi-l">farklı şarkı</span></div>
+                    <div class="kpi"><span class="kpi-v" id="kArtists">–</span><span class="kpi-l">sanatçı</span></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-h"><span id="timelineTitle">Günlük</span><span class="muted" id="timelineHint"></span></div>
+                    <div class="bars" id="timeline"></div>
+                    <div class="axis" id="timelineAxis"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-h"><span>Günün saatleri</span><span class="muted" id="peakHour"></span></div>
+                    <div class="bars hours" id="hours"></div>
+                    <div class="axis"><span>00</span><span>06</span><span>12</span><span>18</span><span>23</span></div>
+                </div>
+
+                <h2 class="section-title">En çok dinlenen şarkılar</h2>
+                <ol class="list ranked" id="topTracks"></ol>
+
+                <h2 class="section-title">En çok dinlenen sanatçılar</h2>
+                <ol class="list ranked" id="topArtists"></ol>
+            </div>
+
+            <!-- Ayarlar -->
+            <div class="panel" data-panel="settings" hidden>
+                <div class="card fields">
+                    <div class="field"><span class="field-l">Sunucu</span><span class="field-v mono" id="setServer"></span></div>
+                    <div class="field"><span class="field-l">Bekleyen dinleme</span><span class="field-v" id="setQueue">0</span></div>
+                </div>
+
+                <h2 class="section-title">Sitende göster</h2>
+                <div class="snippet">
+                    <div class="snippet-h"><span>Canlı widget</span><button class="copy" data-copy="snipWidget">Kopyala</button></div>
+                    <pre id="snipWidget"></pre>
+                </div>
+                <div class="snippet">
+                    <div class="snippet-h"><span>GitHub README kartı</span><button class="copy" data-copy="snipCard">Kopyala</button></div>
+                    <pre id="snipCard"></pre>
+                </div>
+                <div class="snippet">
+                    <div class="snippet-h"><span>JSON API</span><button class="copy" data-copy="snipApi">Kopyala</button></div>
+                    <pre id="snipApi"></pre>
+                </div>
+
+                <button class="btn danger" id="disconnectBtn">Bağlantıyı kes</button>
+            </div>
+        </div>
+    </section>
+
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="popup.js"></script>
+</body>
+</html>

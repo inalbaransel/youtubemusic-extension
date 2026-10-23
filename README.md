@@ -1,134 +1,120 @@
-# YTMusic API
+# YT Music Now Playing
 
-YouTube Music'te dinlediğiniz şarkıyı gerçek zamanlı olarak yakalayan ve bir API üzerinden dışarıya açan Chrome eklentisi. Kendi web sitenizde "şu an dinliyorum" widget'ı yapmak, dinleme istatistiklerini takip etmek veya Discord'da ne dinlediğinizi göstermek için kullanabilirsiniz.
+YouTube Music'te dinlediğin şarkıyı kendi sunucuna gönderen Chrome eklentisi ve küçük bir API. Kendi sitende canlı "şu an dinliyorum" kartı gösterebilir, GitHub profiline kart ekleyebilir ve dinleme istatistiklerini takip edebilirsin.
 
----
-
-## Nasıl Çalışıyor
-
-Sistem üç parçadan oluşuyor:
-
-1. **Chrome Eklentisi** — YouTube Music sekmesinden şarkı bilgilerini (ad, sanatçı, kapak, süre) her yarım saniyede bir okur ve backend'e gönderir.
-2. **Backend API** — Gelen veriyi PostgreSQL veritabanına yazar, herkese açık endpoint'ler üzerinden sunar.
-3. **Discord Bridge** (opsiyonel) — API'den aldığı veriyi Discord Rich Presence olarak yansıtır.
-
-Eklenti tarafında veri toplama işi bir content script ile yapılıyor. YouTube Music'in player bar'ındaki DOM elementlerinden title, artist, artwork ve zaman bilgisi çekiliyor. Bu veri background service worker üzerinden backend'e POST ediliyor.
-
-Backend tarafında Express.js çalışıyor. Kullanıcı kaydı ve girişi bcrypt + JWT ile yapılıyor. Her kullanıcıya benzersiz bir API Key (veri göndermek için) ve User ID (veri okumak için) atanıyor. Prisma ORM ile PostgreSQL'e bağlanıyor.
-
----
-
-## Giriş ve Kayıt
-
-Eklentiyi yükledikten sonra ilk iş bir hesap oluşturmak. E-posta ve şifre ile kayıt olabilirsiniz. Giriş yaptığınızda eklenti arka planda çalışmaya başlıyor.
-
-Kimlik doğrulama Express tarafında rate limiting ile korunuyor. Şifreler bcrypt ile hashleniyor, düz metin olarak hiçbir yerde saklanmıyor.
+Tek kullanıcı için tasarlandı: hesap ya da şifre yok, sunucuda tanımladığın bir token yeterli.
 
 <p align="center">
-  <img src="readme-pics/auth.png" width="320" alt="Giriş ekranı" />
+  <img src="readme-pics/setup.png" width="300" alt="Bağlantı ekranı" />
+  <img src="readme-pics/stats.png" width="300" alt="İstatistikler" />
 </p>
 
 ---
 
-## Anlık Dinleme Durumu
-
-Giriş yaptıktan sonra eklenti popup'ında o an çalan şarkıyı görüyorsunuz. Kapak resmi, sanatçı adı, ilerleme çubuğu ve toplam dinlenme sayısı burada gösteriliyor.
-
-Bu veri aynı zamanda backend'deki `/api/status/:userId` endpoint'i üzerinden herkes tarafından okunabilir durumda. Eğer 15 saniye boyunca yeni veri gelmezse, sunucu otomatik olarak oynatma durumunu "durdu" olarak işaretliyor.
-
-<p align="center">
-  <img src="readme-pics/home.png" width="320" alt="Anlık dinleme durumu" />
-</p>
-
----
-
-## Dinleme İstatistikleri
-
-Eklenti her şarkı değişiminde bir log kaydı tutuyor. Bu kayıtlar üzerinden son 30 günlük dinleme sayısı, son 7 günün en çok dinlenen şarkıları ve favori sanatçıları hesaplanıyor.
-
-Sorgular Prisma üzerinden raw SQL ile yapılıyor. Zaman filtreleri sayesinde eski veriler istatistikleri kirletmiyor ve veritabanı performansı korunuyor.
-
-<p align="center">
-  <img src="readme-pics/stats.png" width="320" alt="Dinleme istatistikleri" />
-</p>
-
----
-
-## Geliştirici Entegrasyonu
-
-Kendi web sitenize "şu an ne dinliyorum" widget'ı eklemek istiyorsanız tek ihtiyacınız User ID'niz. API Key gizlidir ve sadece eklenti tarafında kullanılır. User ID ise herkese açıktır, kaynak kodunuzda bulunmasında sorun yoktur.
-
-İki temel endpoint var:
+## Nasıl çalışıyor
 
 ```
-GET /api/status/:userId    — Anlık çalan şarkı bilgisi
-GET /api/stats/:userId     — Dinleme istatistikleri
+YT Music sekmesi ──► content.js ──► background.js ──► API (Express) ──► PostgreSQL
+                    (video event'leri)  (token, kuyruk)     │
+                                                           ├─► /api/now-playing/stream (SSE) ──► popup, sitendeki widget
+                                                           └─► /api/stats, /api/card.svg
 ```
 
-Status endpoint'i şu yapıda bir JSON döndürüyor:
+- **Eklenti**, sürekli polling yapmak yerine `<video>` elementinin event'lerini dinler. Sunucuya yalnızca şarkı değişince, play/pause/seek olunca ve çalarken 15 sn'de bir heartbeat olarak istek atar. Eski sürüm saniyede 2 istek atıyordu.
+- **Dinleme** Last.fm kuralıyla sayılır: şarkının yarısı ya da 4 dakikası gerçekten çalınmış olmalı. Atlanan şarkılar istatistikleri şişirmez. Tekrar (repeat) modunda her tur ayrı bir dinleme sayılır.
+- Sunucuya ulaşılamazsa dinlemeler eklentide kuyruğa alınır ve sunucu geri gelince gönderilir. Aynı kayıt iki kez yazılmaz.
+- **Canlı durum** sunucunun belleğinde tutulur ve SSE ile anında yayınlanır. Veritabanına sadece anlamlı değişikliklerde yazılır. 45 sn heartbeat gelmezse çalma durmuş sayılır.
+
+## Kurulum
+
+Coolify'a deploy ve eklentiyi yükleme adımları için: **[DEPLOY.md](DEPLOY.md)**
+
+Yerelde çalıştırmak için:
+
+```bash
+cd server && cp .env.example .env   # DATABASE_URL ve INGEST_TOKEN'ı doldur
+npm install && npm run dev
+```
+
+## Sitende göster
+
+### Canlı widget
+
+Kendini otomatik güncelleyen bir kart. Shadow DOM içinde render edildiği için sitenin CSS'iyle çakışmaz.
+
+```html
+<div data-ytm-now-playing></div>
+<script src="https://api.music.ibaransel.com/widget.js" defer></script>
+```
+
+Temayı zorlamak için `data-theme="light"` ya da `data-theme="dark"` ekleyebilirsin.
+
+### GitHub README kartı
+
+```md
+![Şu an dinliyorum](https://api.music.ibaransel.com/api/card.svg)
+```
+
+Açık tema için sonuna `?theme=light` ekle.
+
+### Kendi kodunla
+
+```js
+const API = 'https://api.music.ibaransel.com';
+
+// Anlık değişiklikleri dinle
+const es = new EventSource(`${API}/api/now-playing/stream`);
+es.addEventListener('state', (e) => {
+  const { track, isPlaying, position } = JSON.parse(e.data);
+  if (track) console.log(`${isPlaying ? '▶' : '⏸'} ${track.title} — ${track.artist}`);
+});
+```
+
+## API
+
+| Endpoint | Açıklama |
+|----------|----------|
+| `GET /api/now-playing` | Anlık durum (JSON) |
+| `GET /api/now-playing/stream` | Anlık durum, Server-Sent Events (`event: state`) |
+| `GET /api/stats?range=7d\|30d\|365d\|all` | İstatistikler, 5 dk cache'li |
+| `GET /api/card.svg?theme=dark\|light` | SVG kart |
+| `POST /api/now-playing` 🔒 | Eklenti → anlık durum |
+| `POST /api/scrobble` 🔒 | Eklenti → tamamlanan dinleme |
+| `GET /api/auth/check` 🔒 | Token doğrulama |
+
+🔒 olan endpoint'ler `Authorization: Bearer <INGEST_TOKEN>` header'ı ister. Diğerleri herkese açıktır ve dakikada 120 istekle sınırlıdır.
+
+`/api/now-playing` cevabı:
 
 ```json
 {
-  "title": "Starboy",
-  "artist": "The Weeknd",
-  "album": "Starboy",
-  "artwork": "https://...",
-  "currentTime": "1:45",
-  "totalTime": "3:50",
-  "currentTimeSeconds": 105,
-  "totalTimeSeconds": 230,
+  "track": {
+    "videoId": "4NRXx6U8ABQ",
+    "title": "Blinding Lights",
+    "artist": "The Weeknd",
+    "album": "After Hours",
+    "artwork": "https://lh3.googleusercontent.com/...=w544-h544-l90-rj",
+    "duration": 200,
+    "url": "https://music.youtube.com/watch?v=4NRXx6U8ABQ"
+  },
   "isPlaying": true,
-  "totalListens": 42
+  "position": 42.3,
+  "updatedAt": "2026-10-23T15:20:14.824Z",
+  "listens": 57
 }
 ```
 
-Stats endpoint'i ise son dinlenenleri, haftalık top şarkıları, favori sanatçıları ve aylık toplam dinleme sayısını içeriyor.
+`position`, `updatedAt` anındaki konumdur. Çalarken güncel konum `position + (şimdi - updatedAt)` ile hesaplanabilir. Widget bunu kendisi yapar.
 
-<p align="center">
-  <img src="readme-pics/developer.png" width="320" alt="Geliştirici rehberi" />
-</p>
+`/api/stats` cevabı: `totals` (dinleme, saniye, farklı şarkı/sanatçı), `topTracks`, `topArtists`, `byHour` (24 saatlik dağılım), `timeline` (günlük ya da aylık) ve `recent` (son 20 dinleme).
 
----
+## Yapı
 
-## Sitenize Widget Ekleyin
-
-Aşağıdaki örnek, basit bir fetch çağrısıyla sitenize canlı bir "şu an dinliyorum" kartı eklemenizi gösteriyor:
-
-```javascript
-const USER_ID = 'your-user-id';
-const API = 'https://api.music.baransel.site/api';
-
-async function getNowPlaying() {
-  const res = await fetch(`${API}/status/${USER_ID}`);
-  const data = await res.json();
-
-  if (data.isPlaying) {
-    console.log(`${data.title} - ${data.artist}`);
-  }
-}
-
-getNowPlaying();
-setInterval(getNowPlaying, 3000);
-```
-
-<p align="center">
-  <img src="readme-pics/example.png" width="600" alt="Web sitesinde widget örneği" />
-</p>
-
----
-
-
-## Teknolojiler
-
-| Katman | Kullanılan |
-|--------|-----------|
-| Eklenti | Chrome Extension Manifest V3, Content Scripts |
-| Backend | Node.js, Express.js, Prisma ORM |
-| Veritabanı | PostgreSQL |
-| Auth | bcrypt, JWT |
-| Discord | discord-rpc |
-
----
+| Klasör | İçerik |
+|--------|--------|
+| `extension/` | Chrome eklentisi (Manifest V3, build adımı yok) |
+| `server/` | Node 22 + Express 5 + `postgres` + `zod`, Dockerfile |
+| `server/public/` | `widget.js` ve demo sayfası |
 
 ## Lisans
 
