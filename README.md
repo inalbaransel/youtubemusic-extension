@@ -137,6 +137,19 @@ es.addEventListener('state', (e) => {
 
 `preview`, çalan şarkının 30 sn'lik önizlemesidir ya da `null`. Şarkı değişince önce Apple Music'te (iTunes Search), bulunamazsa Deezer'da aranır; ad, sanatçı ve süre eşleşmezse `null` kalır. Arama arka planda yapılır: yeni şarkı önce `preview: null` ile yayınlanır, önizleme bulununca tekrar yayınlanır. Deezer linkleri ~15 dk'da sona erdiği için Deezer'da `url`, API'ye göre göreli bir yönlendirme yoludur (`/api/preview/deezer/:id`); kullanırken API adresiyle birleştir (`new URL(preview.url, API)`).
 
+### Ziyaret bildirimi
+
+`POST /api/visit` (herkese açık, `text/plain` JSON gövde) siteye giriş ve çıkışı [ntfy](https://ntfy.sh) ile telefona bildirir. `NTFY_TOPIC` boşsa uç hiçbir şey yapmaz. Cevap her durumda `204`'tür.
+
+| `type` | Alanlar | Etki |
+|---|---|---|
+| `enter` | `sid, path, referrer, timezone, language, device` | "New visitor" bildirimi |
+| `view` | `sid, path` | bildirim yok; bekleyen çıkışı iptal eder |
+| `return` | `sid` | bildirim yok; bekleyen çıkışı iptal eder |
+| `leave` | `sid, path, seconds` | 15 sn beklenir, kimse geri dönmezse "Visitor left" |
+
+Güvenlik: yalnızca `SITE_URL` (ve `www`) Origin'inden gelen istekler işlenir; her alan dar bir desene uymak zorundadır (serbest metin ya da link bildirime giremez); bildirimler IP başına dakikada 5, genelde saatte 60 ve günde 300 ile sınırlıdır (aşılırsa saatte en fazla bir "kısıtlandı" uyarısı gelir); bellekteki tüm sayaçlar sınırlıdır. IP ya da kimlik saklanmaz.
+
 `/api/stats` cevabı: `totals` (dinleme, saniye, farklı şarkı/sanatçı), `topTracks`, `topArtists`, `byHour` (24 saatlik dağılım), `timeline` (günlük ya da aylık) ve `recent` (son 20 dinleme). `topTracks` ve `recent` kayıtlarında da `url` ve `source` alanları var.
 
 ## Yapı

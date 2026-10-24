@@ -55,7 +55,8 @@ final class AppModel {
     @ObservationIgnored private var flushing = false
     @ObservationIgnored private var recentLoadedAt: Date?
     /// Geliştirme için: NOWPLAYING_SERVER / NOWPLAYING_TOKEN ile Anahtar Zinciri'ne dokunmadan yerel sunucuya bağlanır.
-    @ObservationIgnored private let envToken = ProcessInfo.processInfo.environment["NOWPLAYING_TOKEN"]
+    /// Kullanıcı Bağlan'dan kendi bilgilerini girince geçersiz olur.
+    @ObservationIgnored private var envToken = ProcessInfo.processInfo.environment["NOWPLAYING_TOKEN"]
 
     init() {
         let defaults = UserDefaults.standard
@@ -254,6 +255,7 @@ final class AppModel {
             return APIError.from(error).message
         }
         guard Keychain.setToken(token) else { return "Token Anahtar Zinciri'ne kaydedilemedi" }
+        envToken = nil
         server = url.absoluteString
         UserDefaults.standard.set(server, forKey: "server")
         hasToken = true
@@ -268,6 +270,7 @@ final class AppModel {
     func disconnect() {
         sendStopped()
         Keychain.deleteToken()
+        envToken = nil
         hasToken = false
         recent = []
         sync = .idle

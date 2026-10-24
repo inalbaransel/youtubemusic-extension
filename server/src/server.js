@@ -9,6 +9,7 @@ import * as live from './live.js';
 import { getStats, invalidate as invalidateStats, RANGES } from './stats.js';
 import { renderCard } from './card.js';
 import { resolveDeezerPreview } from './preview.js';
+import { createVisitHandler } from './visit.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 const TOKEN = process.env.INGEST_TOKEN || '';
@@ -134,6 +135,11 @@ app.get('/api/now-playing', publicLimiter, (req, res) => {
 
 app.get('/api/now-playing/stream', publicLimiter, (req, res) => live.subscribe(req, res));
 
+// Siteye girişleri telefona bildirir. Site `text/plain` gönderir (CORS ön isteği gerekmesin diye).
+// (ham istek sınırı; bildirim sınırları visit.js içinde: IP başına dakikada 5, genelde saatte 60)
+const visitLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: false, legacyHeaders: false });
+app.post('/api/visit', visitLimiter, express.text({ type: 'text/plain', limit: '2kb' }), createVisitHandler());
+
 // Deezer önizleme linkleri kısa ömürlü; istek anında taze linke yönlendir
 app.get('/api/preview/deezer/:id', publicLimiter, async (req, res) => {
     if (!/^\d{1,20}$/.test(req.params.id)) return res.status(400).json({ error: 'Geçersiz id' });
@@ -162,6 +168,8 @@ app.use((req, res) => res.status(404).json({ error: 'Bulunamadı' }));
 
 app.use((err, req, res, next) => {
     if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Geçersiz JSON' });
+    // Aşırı büyük gövde: kullanıcı hatası, loga yığın izi basma (log şişirme saldırısı olmasın)
+    if (err.type === 'entity.too.large') return res.status(413).json({ error: 'İstek çok büyük' });
     console.error(err);
     res.status(500).json({ error: 'Sunucu hatası' });
 });
