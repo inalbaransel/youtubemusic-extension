@@ -143,10 +143,12 @@ es.addEventListener('state', (e) => {
 
 | `type` | Alanlar | Etki |
 |---|---|---|
-| `enter` | `sid, path, referrer, timezone, language, device` | "New visitor" bildirimi |
+| `enter` | `sid, path, referrer, timezone, language, device, browser, os, screen, viewport, theme, connection, ref` | "New visitor" bildirimi |
 | `view` | `sid, path` | bildirim yok; bekleyen çıkışı iptal eder |
 | `return` | `sid` | bildirim yok; bekleyen çıkışı iptal eder |
-| `leave` | `sid, path, seconds` | 15 sn beklenir, kimse geri dönmezse "Visitor left" |
+| `leave` | `sid, path, seconds, pages, scroll, actions` | 15 sn beklenir, kimse geri dönmezse "Visitor left" |
+
+Giren ve çıkan bildirimleri karışmasın diye her oturum, `sid`'den türetilen sabit bir renk+hayvan etiketi (örn. 🟣🦊) alır; giriş ve çıkış başlığı aynı etiketi taşır. `ref`, siteye `?ref=linkedin-cv` gibi etiketli bir linkle girildiğinde "kim" olduğunu söyler. `GEOIP_CITY_DB` ve `GEOIP_ASN_DB` verilirse şehir ve kurum IP'den yerel olarak bulunur.
 
 Güvenlik: yalnızca `SITE_URL` (ve `www`) Origin'inden gelen istekler işlenir; her alan dar bir desene uymak zorundadır (serbest metin ya da link bildirime giremez); bildirimler IP başına dakikada 5, genelde saatte 60 ve günde 300 ile sınırlıdır (aşılırsa saatte en fazla bir "kısıtlandı" uyarısı gelir); bellekteki tüm sayaçlar sınırlıdır. IP ya da kimlik saklanmaz.
 

@@ -10,6 +10,7 @@ import { z } from 'zod';
  *  - bellekte tutulan her şey sınırlıdır,
  *  - cevap her durumda 204'tür; uç hakkında hiçbir şey sızdırılmaz.
  * IP ve kimlik hiçbir yere yazılmaz; sayaçlar bellekte kalır ve süre dolunca silinir.
+ * IP'den şehir/kurum bulma (isteğe bağlı) yerel bir MaxMind veritabanıyla yapılır; IP üçüncü tarafa gitmez.
  */
 
 const NTFY_URL = (process.env.NTFY_URL || 'https://ntfy.sh').replace(/\/$/, '');
@@ -30,20 +31,89 @@ const TIMEOUT_MS = 4000;
 
 // ─── Girdi doğrulama: serbest metin yok, yalnızca dar desenler ───
 
+const optional = (schema) => schema.or(z.literal('')).default('');
 const sid = z.string().regex(/^[a-f0-9]{16,32}$/);
 const path = z.string().max(100).regex(/^\/[A-Za-z0-9\-._~/]*$/).refine((p) => !p.includes('//'));
-const host = z.string().max(100).regex(/^[a-z0-9]([a-z0-9.\-]*[a-z0-9])?(:\d{1,5})?$/i).or(z.literal(''));
-const timezone = z.string().max(64).regex(/^[A-Za-z]+(\/[A-Za-z0-9_+\-]+){0,2}$/).or(z.literal(''));
-const language = z.string().max(20).regex(/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8}){0,3}$/).or(z.literal(''));
+const host = optional(z.string().max(100).regex(/^[a-z0-9]([a-z0-9.\-]*[a-z0-9])?(:\d{1,5})?$/i));
+const timezone = optional(z.string().max(64).regex(/^[A-Za-z]+(\/[A-Za-z0-9_+\-]+){0,2}$/));
+const lang = '[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8}){0,3}';
+const languages = optional(z.string().max(60).regex(new RegExp(`^${lang}(,${lang}){0,2}$`)));
 const device = z.enum(['mobile', 'desktop']);
+const label = optional(z.string().max(40).regex(/^[A-Za-z0-9][A-Za-z0-9 ._+()-]*$/)); // "Safari 18.2", "iOS 18.2"
+const size = optional(z.string().max(20).regex(/^\d{3,5}x\d{3,5}(@\d(\.\d{1,2})?)?$/)); // "393x852@3"
+const ref = optional(z.string().max(32).regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/));
+const theme = optional(z.enum(['dark', 'light']));
+const connection = optional(z.enum(['slow-2g', '2g', '3g', '4g']));
 const seconds = z.number().int().min(0).max(86_400);
+const ACTIONS = ['resume', 'github', 'linkedin', 'mail'];
 
 const Visit = z.discriminatedUnion('type', [
-    z.object({ type: z.literal('enter'), sid, path, referrer: host.default(''), timezone: timezone.default(''), language: language.default(''), device: device.default('desktop') }),
+    z.object({
+        type: z.literal('enter'), sid, path, referrer: host, timezone, language: languages, device: device.default('desktop'),
+        browser: label, os: label, screen: size, viewport: size, theme, connection, ref
+    }),
     z.object({ type: z.literal('view'), sid, path }),
     z.object({ type: z.literal('return'), sid }),
-    z.object({ type: z.literal('leave'), sid, path, seconds })
+    z.object({
+        type: z.literal('leave'), sid, path, seconds,
+        pages: z.number().int().min(1).max(99).default(1),
+        scroll: z.number().int().min(0).max(100).default(0),
+        actions: z.array(z.enum(ACTIONS)).max(4).default([])
+    })
 ]);
+
+// ─── Ziyaretçi etiketi: giren ve çıkan bildirimler karışmasın ───
+
+const COLORS = ['🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '🟤', '⚫', '⚪', '🔺', '🔷', '🔶'];
+const ANIMALS = ['🦊', '🐼', '🐸', '🦁', '🐙', '🦄', '🐢', '🦉', '🐳', '🦋', '🐝', '🐧'];
+
+/** Oturum kimliğinden sabit bir renk+hayvan çifti (144 kombinasyon): aynı kişinin giriş ve çıkışı aynı etiketi taşır. */
+export function visitorLabel(id) {
+    return COLORS[parseInt(id.slice(0, 2), 16) % COLORS.length] + ANIMALS[parseInt(id.slice(2, 4), 16) % ANIMALS.length];
+}
+
+// ─── IP'den şehir/kurum (isteğe bağlı, yerel MaxMind veritabanı) ───
+
+let geoLookup = null;
+
+async function loadGeo() {
+    const cityPath = process.env.GEOIP_CITY_DB;
+    if (!cityPath) return null;
+    try {
+        const mod = await import('maxmind');
+        const maxmind = mod.default ?? mod;
+        const city = await maxmind.open(cityPath);
+        const asn = process.env.GEOIP_ASN_DB ? await maxmind.open(process.env.GEOIP_ASN_DB) : null;
+        return (ip) => {
+            try {
+                const c = city.get(ip);
+                const a = asn?.get(ip);
+                return {
+                    city: c?.city?.names?.en ?? '',
+                    country: c?.country?.iso_code ?? '',
+                    org: a?.autonomous_system_organization ?? ''
+                };
+            } catch {
+                return null;
+            }
+        };
+    } catch (err) {
+        console.error('GeoIP kapalı:', err.message);
+        return null;
+    }
+}
+loadGeo().then((fn) => (geoLookup = fn));
+
+// yalnızca harf, rakam ve birkaç noktalama kalır: link, satır sonu, parantez/köşeli parantez oluşamaz
+const clean = (text, max = 40) => String(text).replace(/[^\p{L}\p{N} .,&'-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, max);
+
+function describeLocation(geo, tz) {
+    if (geo && (geo.city || geo.country)) {
+        const place = [geo.city, geo.country].filter(Boolean).join(', ');
+        return geo.org ? `${clean(place)} (${clean(geo.org)})` : clean(place);
+    }
+    return tz ? cityFrom(tz) : '';
+}
 
 // ─── Bildirim metni ───
 
@@ -58,22 +128,32 @@ export function formatDuration(total) {
     return `${s}s`;
 }
 
+const line = (...parts) => parts.filter(Boolean).join(' · ');
+
 export function buildMessage(visit, session = {}) {
+    const tag = visitorLabel(visit.sid);
+
     if (visit.type === 'leave') {
-        const parts = [];
-        if (session.timezone) parts.push(cityFrom(session.timezone));
-        if (session.device) parts.push(session.device);
-        parts.push(`stayed ${formatDuration(visit.seconds)}`);
-        parts.push(`last page ${visit.path}`);
-        return { title: 'Visitor left ibaransel.com', message: parts.join(' · '), tags: ['wave'] };
+        return {
+            title: `${tag} Visitor left`,
+            message: [
+                line(`stayed ${formatDuration(visit.seconds)}`, `${visit.pages} ${visit.pages === 1 ? 'page' : 'pages'}`, `scrolled ${visit.scroll}%`),
+                visit.actions.length ? `opened: ${visit.actions.join(', ')}` : '',
+                line(`last page ${visit.path}`, session.where, session.device)
+            ].filter(Boolean).join('\n'),
+            tags: ['wave']
+        };
     }
 
-    const parts = [visit.path === '/' ? 'home' : visit.path];
-    if (visit.timezone) parts.push(cityFrom(visit.timezone));
-    parts.push(visit.device);
-    if (visit.language) parts.push(visit.language);
-    if (visit.referrer) parts.push(`from ${visit.referrer}`);
-    return { title: 'New visitor on ibaransel.com', message: parts.join(' · '), tags: ['eyes'], click: `${SITE_URL}${visit.path}` };
+    return {
+        title: `${tag} New visitor`,
+        message: [
+            line(visit.path === '/' ? 'home' : visit.path, visit.referrer && `from ${visit.referrer}`, visit.ref && `ref ${visit.ref}`),
+            line(session.where, visit.device, visit.browser, visit.os),
+            line(visit.screen, visit.language, visit.theme, visit.connection)
+        ].filter(Boolean).join('\n'),
+        click: `${SITE_URL}${visit.path}`
+    };
 }
 
 async function sendToNtfy(notification) {
@@ -87,19 +167,20 @@ async function sendToNtfy(notification) {
     if (!res.ok) throw new Error(`ntfy ${res.status}`);
 }
 
-/** `send`, `now`, `enabled`, `origins`, `leaveDelayMs` test için dışarıdan verilebilir. */
+/** `send`, `now`, `enabled`, `origins`, `leaveDelayMs`, `geo` test için dışarıdan verilebilir. */
 export function createVisitHandler({
     send = sendToNtfy,
     now = Date.now,
     enabled = Boolean(NTFY_TOPIC),
     origins = [SITE_URL, SITE_URL.replace('://', '://www.')],
-    leaveDelayMs = LEAVE_DELAY_MS
+    leaveDelayMs = LEAVE_DELAY_MS,
+    geo = (ip) => geoLookup?.(ip) ?? null
 } = {}) {
     const allowedOrigins = new Set(origins);
     const ipHits = new Map(); // ip -> son dakikadaki bildirim zamanları
     const sentHour = [];
     const sentDay = [];
-    const sessions = new Map(); // sid -> { timezone, device, at } (çıkış bildirimine bağlam)
+    const sessions = new Map(); // sid -> { where, device, left, at } (çıkış bildirimine bağlam)
     const pending = new Map(); // sid -> zamanlayıcı (bekleyen çıkış bildirimi)
     let throttleNoticeAt = 0;
 
@@ -155,7 +236,7 @@ export function createVisitHandler({
     }
 
     function remember(id, data) {
-        sessions.set(id, { ...data, at: now() });
+        sessions.set(id, { ...data, left: false, at: now() });
         if (sessions.size > MAX_SESSIONS) sessions.delete(sessions.keys().next().value);
     }
 
@@ -191,8 +272,15 @@ export function createVisitHandler({
         if (visit.type === 'enter') {
             // aynı oturum için ikinci "giriş" bildirimi üretme
             if (sessions.has(visit.sid)) return;
-            remember(visit.sid, { timezone: visit.timezone, device: visit.device });
-            notify(ip, buildMessage(visit));
+            let found = null;
+            try {
+                found = geo(ip);
+            } catch {
+                // konum aramasındaki bir hata bildirimi engellemesin; saat dilimine düşülür
+            }
+            const where = describeLocation(found, visit.timezone);
+            remember(visit.sid, { where, device: [visit.device, visit.browser].filter(Boolean).join(' ') });
+            notify(ip, buildMessage(visit, { where }));
             return;
         }
 
