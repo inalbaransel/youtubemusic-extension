@@ -73,6 +73,12 @@ export async function update({ track, isPlaying, position }) {
     const trackChanged = Boolean(track) && trackKey(track) !== trackKey(state.track);
     const playChanged = isPlaying !== state.isPlaying;
     const seeked = Boolean(track) && Math.abs(currentPosition() - position) > 3;
+    // Eklenti süreyi ve kapağı şarkı başladıktan birkaç saniye sonra tekrar gönderir; bunlar da yayınlanmalı,
+    // yoksa site şarkıyı süresiz görüp ilerleme çubuğunu gizler.
+    const detailsChanged =
+        !trackChanged &&
+        Boolean(track && state.track) &&
+        (track.duration !== state.track.duration || track.artwork !== state.track.artwork);
 
     if (trackChanged) {
         state.listens = await countListens(track);
@@ -88,7 +94,7 @@ export async function update({ track, isPlaying, position }) {
     state.isPlaying = isPlaying;
     state.updatedAt = new Date().toISOString();
 
-    if (trackChanged || playChanged || seeked) {
+    if (trackChanged || playChanged || seeked || detailsChanged) {
         broadcast();
         persist();
     }
