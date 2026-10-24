@@ -1,4 +1,5 @@
 import { sql } from './db.js';
+import { findPreview } from './preview.js';
 
 // Eklenti çalarken 15 sn'de bir heartbeat atar. Bu sürede ses gelmezse
 // (sekme kapandı, bilgisayar uyudu...) çalma durmuş kabul edilir.
@@ -10,7 +11,8 @@ let state = {
     isPlaying: false,
     position: 0,
     updatedAt: new Date().toISOString(),
-    listens: 0
+    listens: 0,
+    preview: null // { url, source: 'apple' | 'deezer' } ya da null
 };
 let lastSeen = 0;
 const clients = new Set();
@@ -31,6 +33,16 @@ export function snapshot() {
 function broadcast() {
     const payload = `event: state\ndata: ${JSON.stringify(snapshot())}\n\n`;
     for (const res of clients) res.write(payload);
+}
+
+/** Önizlemeyi arka planda arar; bulunduğunda şarkı hâlâ aynıysa yayınlar. */
+function loadPreview(track) {
+    findPreview(track).then((preview) => {
+        if (!preview || trackKey(track) !== trackKey(state.track)) return;
+        state.preview = preview;
+        broadcast();
+        persist();
+    });
 }
 
 async function countListens(track) {
@@ -62,7 +74,11 @@ export async function update({ track, isPlaying, position }) {
     const playChanged = isPlaying !== state.isPlaying;
     const seeked = Boolean(track) && Math.abs(currentPosition() - position) > 3;
 
-    if (trackChanged) state.listens = await countListens(track);
+    if (trackChanged) {
+        state.listens = await countListens(track);
+        state.preview = null;
+        loadPreview(track);
+    }
     if (track) {
         state.track = track;
         state.position = position;
@@ -101,6 +117,7 @@ export function subscribe(req, res) {
 export async function init() {
     const [row] = await sql`SELECT data FROM now_playing WHERE id = 1`;
     if (row) state = { ...state, ...row.data, isPlaying: false };
+    if (state.track && !state.preview) loadPreview(state.track);
 
     setInterval(() => {
         if (state.isPlaying && Date.now() - lastSeen > STALE_MS) {

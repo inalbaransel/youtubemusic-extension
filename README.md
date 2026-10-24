@@ -78,6 +78,7 @@ es.addEventListener('state', (e) => {
 | `GET /api/now-playing/stream` | Anlık durum, Server-Sent Events (`event: state`) |
 | `GET /api/stats?range=7d\|30d\|365d\|all` | İstatistikler, 5 dk cache'li |
 | `GET /api/card.svg?theme=dark\|light` | SVG kart |
+| `GET /api/preview/deezer/:id` | Deezer önizlemesinin o anki geçerli linkine yönlendirir (302) |
 | `POST /api/now-playing` 🔒 | Eklenti → anlık durum |
 | `POST /api/scrobble` 🔒 | Eklenti → tamamlanan dinleme |
 | `GET /api/auth/check` 🔒 | Token doğrulama |
@@ -100,11 +101,14 @@ es.addEventListener('state', (e) => {
   "isPlaying": true,
   "position": 42.3,
   "updatedAt": "2026-10-23T15:20:14.824Z",
-  "listens": 57
+  "listens": 57,
+  "preview": { "url": "https://audio-ssl.itunes.apple.com/...m4a", "source": "apple" }
 }
 ```
 
 `position`, `updatedAt` anındaki konumdur. Çalarken güncel konum `position + (şimdi - updatedAt)` ile hesaplanabilir. Widget bunu kendisi yapar.
+
+`preview`, çalan şarkının 30 sn'lik önizlemesidir ya da `null`. Şarkı değişince önce Apple Music'te (iTunes Search), bulunamazsa Deezer'da aranır; ad, sanatçı ve süre eşleşmezse `null` kalır. Arama arka planda yapılır: yeni şarkı önce `preview: null` ile yayınlanır, önizleme bulununca tekrar yayınlanır. Deezer linkleri ~15 dk'da sona erdiği için Deezer'da `url`, API'ye göre göreli bir yönlendirme yoludur (`/api/preview/deezer/:id`); kullanırken API adresiyle birleştir (`new URL(preview.url, API)`).
 
 `/api/stats` cevabı: `totals` (dinleme, saniye, farklı şarkı/sanatçı), `topTracks`, `topArtists`, `byHour` (24 saatlik dağılım), `timeline` (günlük ya da aylık) ve `recent` (son 20 dinleme).
 

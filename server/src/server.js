@@ -8,6 +8,7 @@ import { sql, migrate } from './db.js';
 import * as live from './live.js';
 import { getStats, invalidate as invalidateStats, RANGES } from './stats.js';
 import { renderCard } from './card.js';
+import { resolveDeezerPreview } from './preview.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 const TOKEN = process.env.INGEST_TOKEN || '';
@@ -124,6 +125,14 @@ app.get('/api/now-playing', publicLimiter, (req, res) => {
 });
 
 app.get('/api/now-playing/stream', publicLimiter, (req, res) => live.subscribe(req, res));
+
+// Deezer önizleme linkleri kısa ömürlü; istek anında taze linke yönlendir
+app.get('/api/preview/deezer/:id', publicLimiter, async (req, res) => {
+    if (!/^\d{1,20}$/.test(req.params.id)) return res.status(400).json({ error: 'Geçersiz id' });
+    const url = await resolveDeezerPreview(req.params.id).catch(() => null);
+    if (!url) return res.status(404).json({ error: 'Önizleme bulunamadı' });
+    res.set('Cache-Control', 'no-store').redirect(302, url);
+});
 
 app.get('/api/stats', publicLimiter, async (req, res) => {
     const range = String(req.query.range || '7d');
