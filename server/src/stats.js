@@ -57,6 +57,8 @@ async function compute(range) {
             SELECT title, artist,
                    (array_agg(artwork ORDER BY played_at DESC))[1] AS artwork,
                    (array_agg(video_id ORDER BY played_at DESC))[1] AS "videoId",
+                   (array_agg(url ORDER BY played_at DESC))[1] AS url,
+                   (array_agg(source ORDER BY played_at DESC))[1] AS source,
                    count(*)::int AS plays
             FROM plays WHERE played_at >= ${since}
             GROUP BY artist, title
@@ -85,7 +87,7 @@ async function compute(range) {
             GROUP BY 1
         `,
         sql`
-            SELECT title, artist, artwork, video_id AS "videoId", played_at AS "playedAt"
+            SELECT title, artist, artwork, video_id AS "videoId", url, source, played_at AS "playedAt"
             FROM plays ORDER BY played_at DESC LIMIT 20
         `
     ]);

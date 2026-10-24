@@ -1,7 +1,7 @@
 import { sql } from './db.js';
 import { findPreview } from './preview.js';
 
-// Eklenti çalarken 15 sn'de bir heartbeat atar. Bu sürede ses gelmezse
+// Eklenti ve Mac uygulaması çalarken 15 sn'de bir heartbeat atar. Bu sürede ses gelmezse
 // (sekme kapandı, bilgisayar uyudu...) çalma durmuş kabul edilir.
 const STALE_MS = 45_000;
 const SSE_PING_MS = 25_000;
@@ -12,9 +12,11 @@ let state = {
     position: 0,
     updatedAt: new Date().toISOString(),
     listens: 0,
+    source: null, // durumu en son belirleyen kaynak: 'ytmusic' | 'apple-music'
     preview: null // { url, source: 'apple' | 'deezer' } ya da null
 };
-let lastSeen = 0;
+const lastSeen = new Map(); // kaynak -> son mesaj zamanı (ms)
+const lastReport = new Map(); // kaynak -> { key, isPlaying }: kaynağın kendi son bildirdiği durum
 const clients = new Set();
 
 const trackKey = (t) => (t ? `${t.artist}\u0000${t.title}` : '');
@@ -65,11 +67,30 @@ function persist() {
     }, 1000);
 }
 
-/** Eklentiden gelen anlık durumu uygular. Sadece anlamlı değişiklikte yayın yapar. */
-export async function update({ track, isPlaying, position }) {
-    lastSeen = Date.now();
+const isActive = (source) => Date.now() - (lastSeen.get(source) || 0) < STALE_MS;
+
+/**
+ * Aynı anda iki kaynak varken (ör. Apple Music çalarken YT Music sekmesi açık) bu mesaj yok sayılmalı mı?
+ * Başka bir kaynak çalıyorsa: bu kaynağın durması/duraklaması onu ezmez, sadece yeni başlayan
+ * (ya da şarkı değiştiren) bir kaynak öne geçer. Böylece iki çalar 15 sn'lik heartbeat'lerle birbirini ezmez.
+ */
+function shouldIgnore(source, key, isPlaying) {
+    const prev = lastReport.get(source);
+    lastReport.set(source, { key, isPlaying });
+    const otherPlaying = state.isPlaying && state.source && state.source !== source && isActive(state.source);
+    if (!otherPlaying) return false;
+    if (!isPlaying) return true;
+    const justStarted = !prev || !prev.isPlaying || prev.key !== key;
+    return !justStarted;
+}
+
+/** Eklentiden ya da Mac uygulamasından gelen anlık durumu uygular. Sadece anlamlı değişiklikte yayın yapar. */
+export async function update({ track, isPlaying, position, source = 'ytmusic' }) {
+    lastSeen.set(source, Date.now());
     // track null ise (YT Music kapalı/boş) son şarkıyı "son dinlenen" olarak tutarız.
     isPlaying = Boolean(track) && isPlaying;
+    if (shouldIgnore(source, trackKey(track), isPlaying)) return;
+    const sourceChanged = source !== state.source;
     const trackChanged = Boolean(track) && trackKey(track) !== trackKey(state.track);
     const playChanged = isPlaying !== state.isPlaying;
     const seeked = Boolean(track) && Math.abs(currentPosition() - position) > 3;
@@ -92,9 +113,10 @@ export async function update({ track, isPlaying, position }) {
         state.position = currentPosition();
     }
     state.isPlaying = isPlaying;
+    state.source = source;
     state.updatedAt = new Date().toISOString();
 
-    if (trackChanged || playChanged || seeked || detailsChanged) {
+    if (trackChanged || playChanged || seeked || detailsChanged || sourceChanged) {
         broadcast();
         persist();
     }
@@ -126,7 +148,7 @@ export async function init() {
     if (state.track && !state.preview) loadPreview(state.track);
 
     setInterval(() => {
-        if (state.isPlaying && Date.now() - lastSeen > STALE_MS) {
+        if (state.isPlaying && !isActive(state.source)) {
             state.position = currentPosition();
             state.isPlaying = false;
             state.updatedAt = new Date().toISOString();

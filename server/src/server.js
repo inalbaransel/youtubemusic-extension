@@ -29,6 +29,7 @@ app.use(express.static(fileURLToPath(new URL('../public', import.meta.url)), { m
 
 const httpsUrl = z.string().max(1000).refine((s) => s === '' || s.startsWith('https://'), 'https olmalı');
 const seconds = z.number().finite().min(0).max(86_400);
+const Source = z.enum(['ytmusic', 'apple-music']).default('ytmusic');
 
 const Track = z.object({
     videoId: z.string().regex(/^[\w-]{1,32}$/).nullish().transform((v) => v ?? null),
@@ -36,16 +37,23 @@ const Track = z.object({
     artist: z.string().trim().min(1).max(300),
     album: z.string().trim().max(300).default(''),
     artwork: httpsUrl.default(''),
-    duration: seconds.default(0)
+    duration: seconds.default(0),
+    url: httpsUrl.nullish(),
+    source: Source
 }).transform((t) => ({
     ...t,
-    url: t.videoId ? `https://music.youtube.com/watch?v=${t.videoId}` : null
+    url: t.url || (t.videoId ? `https://music.youtube.com/watch?v=${t.videoId}` : null)
 }));
 
+// source gövdede de var: track null gönderildiğinde (durdu/kapatıldı) kimden geldiğini bilmek için.
 const NowPlayingBody = z.object({
     track: Track.nullable(),
     isPlaying: z.boolean(),
-    position: seconds.default(0)
+    position: seconds.default(0),
+    source: z.enum(['ytmusic', 'apple-music']).optional()
+}).transform((b) => {
+    const source = b.source ?? b.track?.source ?? 'ytmusic';
+    return { ...b, source, track: b.track && { ...b.track, source } };
 });
 
 const ScrobbleBody = z.object({
@@ -105,9 +113,9 @@ app.post('/api/scrobble', requireToken, async (req, res) => {
     }
 
     const inserted = await sql`
-        INSERT INTO plays (video_id, title, artist, album, artwork, duration_sec, listened_sec, played_at)
+        INSERT INTO plays (video_id, title, artist, album, artwork, duration_sec, listened_sec, played_at, source, url)
         VALUES (${track.videoId}, ${track.title}, ${track.artist}, ${track.album}, ${track.artwork},
-                ${Math.round(track.duration)}, ${Math.round(listened)}, ${playedAt})
+                ${Math.round(track.duration)}, ${Math.round(listened)}, ${playedAt}, ${track.source}, ${track.url})
         ON CONFLICT DO NOTHING
         RETURNING id
     `;

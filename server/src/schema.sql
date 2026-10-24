@@ -16,6 +16,11 @@ CREATE INDEX IF NOT EXISTS plays_track_idx ON plays (artist, title);
 -- Eklenti ağ hatasında aynı dinlemeyi tekrar gönderebilir; çift kaydı engeller.
 CREATE UNIQUE INDEX IF NOT EXISTS plays_dedupe_idx ON plays (played_at, artist, title);
 
+-- Dinlemenin geldiği yer: YT Music eklentisi ya da Mac'teki Apple Music uygulaması.
+ALTER TABLE plays ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'ytmusic';
+-- Şarkının açılacağı link (Apple Music için music.apple.com). YT Music'te video_id'den üretilir.
+ALTER TABLE plays ADD COLUMN IF NOT EXISTS url TEXT;
+
 -- Sunucu yeniden başladığında son durumu hatırlamak için tek satırlık tablo.
 CREATE TABLE IF NOT EXISTS now_playing (
   id         SMALLINT    PRIMARY KEY DEFAULT 1 CHECK (id = 1),

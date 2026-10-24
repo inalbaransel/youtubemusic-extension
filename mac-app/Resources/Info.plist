@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.ibaransel.nowplayingbar</string>
+    <key>CFBundleName</key>
+    <string>Now Playing</string>
+    <key>CFBundleDisplayName</key>
+    <string>Now Playing</string>
+    <key>CFBundleExecutable</key>
+    <string>NowPlayingBar</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <!-- Dock'ta görünmesin, sadece menü çubuğunda dursun -->
+    <key>LSUIElement</key>
+    <true/>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.music</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Çalan şarkının konumunu okuyup sitende canlı göstermek için Music uygulamasına erişim gerekiyor.</string>
+    <!-- Yerel test sunucusu (http://localhost) için -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsLocalNetworking</key>
+        <true/>
+    </dict>
+</dict>
+</plist>
