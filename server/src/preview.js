@@ -143,3 +143,6 @@ export async function findPreview(track) {
     if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value);
     return result;
 }
+
+// söz araması da aynı ad/sanatçı temizliğini kullanır
+export { normalize, cleanTitle, artistNames };

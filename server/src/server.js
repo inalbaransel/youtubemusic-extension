@@ -10,6 +10,7 @@ import { getStats, invalidate as invalidateStats, RANGES } from './stats.js';
 import { renderCard } from './card.js';
 import { resolveDeezerPreview } from './preview.js';
 import { createVisitHandler } from './visit.js';
+import { getLyrics } from './lyrics.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 const TOKEN = process.env.INGEST_TOKEN || '';
@@ -139,6 +140,16 @@ app.get('/api/now-playing/stream', publicLimiter, (req, res) => live.subscribe(r
 // (ham istek sınırı; bildirim sınırları visit.js içinde: IP başına dakikada 5, genelde saatte 60)
 const visitLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: false, legacyHeaders: false });
 app.post('/api/visit', visitLimiter, express.text({ type: 'text/plain', limit: '2kb' }), createVisitHandler());
+
+// Çalan (ya da son çalan) şarkının sözleri. Parametre almaz: sadece zaten herkese açık olan şarkı için çalışır,
+// bu yüzden söz/çeviri proxy'si olarak kötüye kullanılamaz. Telifli içerik: aranmasın ve önbelleğe alınmasın.
+app.get('/api/lyrics', publicLimiter, async (req, res) => {
+    res.set({ 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow' });
+    const { track } = live.snapshot();
+    if (!track) return res.json({ status: 'none' });
+    const lyrics = await getLyrics(track);
+    res.json({ track: { title: track.title, artist: track.artist }, ...lyrics });
+});
 
 // Deezer önizleme linkleri kısa ömürlü; istek anında taze linke yönlendir
 app.get('/api/preview/deezer/:id', publicLimiter, async (req, res) => {

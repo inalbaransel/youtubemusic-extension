@@ -1,5 +1,6 @@
 import { sql } from './db.js';
 import { findPreview } from './preview.js';
+import { prefetchLyrics } from './lyrics.js';
 
 // Eklenti ve Mac uygulaması çalarken 15 sn'de bir heartbeat atar. Bu sürede ses gelmezse
 // (sekme kapandı, bilgisayar uyudu...) çalma durmuş kabul edilir.
@@ -29,7 +30,10 @@ function currentPosition(now = Date.now()) {
 }
 
 export function snapshot() {
-    return { ...state, position: Math.round(currentPosition() * 10) / 10 };
+    const now = Date.now();
+    // position güncel hesaplanıyor; updatedAt de aynı ana çekilmeli. Yoksa istemci "position + (şimdi - updatedAt)"
+    // diyerek geçen süreyi ikinci kez ekler (yayın son heartbeat'ten 15 sn sonra yapılırsa söz senkronu kayar).
+    return { ...state, position: Math.round(currentPosition(now) * 10) / 10, updatedAt: new Date(now).toISOString() };
 }
 
 function broadcast() {
@@ -93,7 +97,8 @@ export async function update({ track, isPlaying, position, source = 'ytmusic' })
     const sourceChanged = source !== state.source;
     const trackChanged = Boolean(track) && trackKey(track) !== trackKey(state.track);
     const playChanged = isPlaying !== state.isPlaying;
-    const seeked = Boolean(track) && Math.abs(currentPosition() - position) > 3;
+    // 1.5 sn: sözler satır satır takip edildiği için ilerleme çubuğundan daha sıkı senkron gerekir
+    const seeked = Boolean(track) && Math.abs(currentPosition() - position) > 1.5;
     // Eklenti süreyi ve kapağı şarkı başladıktan birkaç saniye sonra tekrar gönderir; bunlar da yayınlanmalı,
     // yoksa site şarkıyı süresiz görüp ilerleme çubuğunu gizler.
     const detailsChanged =
@@ -105,6 +110,7 @@ export async function update({ track, isPlaying, position, source = 'ytmusic' })
         state.listens = await countListens(track);
         state.preview = null;
         loadPreview(track);
+        prefetchLyrics(track);
     }
     if (track) {
         state.track = track;
@@ -146,6 +152,7 @@ export async function init() {
     const [row] = await sql`SELECT data FROM now_playing WHERE id = 1`;
     if (row) state = { ...state, ...row.data, isPlaying: false };
     if (state.track && !state.preview) loadPreview(state.track);
+    if (state.track) prefetchLyrics(state.track);
 
     setInterval(() => {
         if (state.isPlaying && !isActive(state.source)) {
