@@ -11,6 +11,7 @@ import { renderCard } from './card.js';
 import { resolveDeezerPreview } from './preview.js';
 import { createVisitHandler } from './visit.js';
 import { getLyrics } from './lyrics.js';
+import { createChatHandler } from './chat.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 const TOKEN = process.env.INGEST_TOKEN || '';
@@ -150,6 +151,10 @@ app.get('/api/lyrics', publicLimiter, async (req, res) => {
     const lyrics = await getLyrics(track);
     res.json({ track: { title: track.title, artist: track.artist }, ...lyrics });
 });
+
+// Argus (site asistanı): OpenAI anahtarı yalnızca burada. Origin kontrolü, IP/gün sınırları ve toplam tavan chat.js içinde.
+const chatLimiter = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: false, legacyHeaders: false, message: { error: 'rate', message: 'Çok hızlı yazıyorsun, biraz yavaşla ve tekrar dene.' } });
+app.post('/api/chat', chatLimiter, createChatHandler({ getSnapshot: live.snapshot }));
 
 // Deezer önizleme linkleri kısa ömürlü; istek anında taze linke yönlendir
 app.get('/api/preview/deezer/:id', publicLimiter, async (req, res) => {
