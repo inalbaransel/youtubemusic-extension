@@ -207,7 +207,7 @@ export function createChatHandler({ getSnapshot, getStats, fetchImpl = fetch, en
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
                 body: JSON.stringify({
-                    model: env.OPENAI_MODEL || 'gpt-4o',
+                    model: env.OPENAI_MODEL || 'gpt-4o-mini',
                     stream: true,
                     max_tokens: MAX_OUTPUT_TOKENS,
                     temperature: 0.5,
