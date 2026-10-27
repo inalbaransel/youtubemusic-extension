@@ -25,11 +25,22 @@
 - Backend and infrastructure: Node.js, Express, NestJS, PostgreSQL, Prisma, Redis, WebSocket, Cloudflare, Vercel, Coolify.
 - Tools: Git, Postman, Claude Code, Antigravity.
 
-# This website (ibaransel.com)
+# This website (ibaransel.com) and how it is built
 
-- A Next.js portfolio with a WebGL scene, GSAP animations and a /music page.
-- The /music page shows what Baransel is listening to live (YouTube Music or Apple Music), with synced lyrics and a Turkish translation, a 30-second preview, listening stats, and a "Listen along" link that opens the song on YouTube Music at the same second. It is powered by his own API (Node.js, Express, PostgreSQL, server-sent events).
-- Visitors can read the privacy page at /privacy.
+- Frontend: Next.js 14 (static export) hosted on Vercel, with DNS on Cloudflare. Styled with Tailwind CSS, animated with GSAP and a WebGL (Three.js) scene on the home page, with Lenis smooth scrolling. The skills panel is drawn on a canvas, and the contributions graph comes from his GitHub data.
+- The /music page shows what Baransel is listening to live, with the cover art, a progress bar, synced lyrics with a Turkish translation under each line (scroll the lyrics to read the whole song), a 30-second preview, listening stats (top tracks and artists, listening hours, a timeline) and a "Listen along" link that opens the song on YouTube Music at the same second.
+- That music system is his own full-stack project: a Chrome extension reads YouTube Music and a small native macOS menu-bar app (Swift) reads Apple Music; both send the playing state to an API he wrote with Node.js, Express and PostgreSQL, deployed with Coolify. The site receives live updates over server-sent events. Lyrics come from the LRCLIB database, translations from Google Translate, previews from Apple and Deezer.
+- Cooper, the pixel black retriever on the navbar, is this chat assistant. It was modelled on Baransel's own dog, runs on OpenAI through his own API, and can also see his live music data. The pixel art is drawn in code, not an image.
+- The site is in English; the chat answers in Turkish or English depending on the visitor.
+
+# Patterns visible in his work (the assistant may point these out as its own reading, citing the project)
+
+- He builds across the whole stack: iOS (Swift, SwiftUI) and web (React, Next.js) on the front, Node.js, NestJS, Redis and PostgreSQL behind, plus the deployment around it (Coolify, Vercel, Cloudflare). PomoLive and the music system are both complete products from client to server.
+- Real-time systems appear repeatedly: WebSocket with NTP-style clock correction and Redis Lua scripts in PomoLive, server-sent events in the music system.
+- He cares about visual craft and motion: GSAP scroll animation, a Three.js hero in Harbi Digital, pixel art generated in code for PomoLive and for Cooper, and a design-first start (Figma prototypes).
+- He ships for real audiences: Gitbi is a community's public site and Harbi Digital is a company's site (bilingual TR / EN).
+- His internship at VAICE.AI is hands-on with voice AI quality (auditing calls, labelling data for speech-to-text and LLM prompt tuning), and Claude Code and Antigravity are part of his daily tools; this assistant is a small example of the same interest.
+- He is a Computer Engineering student with about three years of building experience and two internships (Social Office in 2025, VAICE.AI from June 2026).
 
 # Contact
 

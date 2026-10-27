@@ -152,9 +152,9 @@ app.get('/api/lyrics', publicLimiter, async (req, res) => {
     res.json({ track: { title: track.title, artist: track.artist }, ...lyrics });
 });
 
-// Argus (site asistanı): OpenAI anahtarı yalnızca burada. Origin kontrolü, IP/gün sınırları ve toplam tavan chat.js içinde.
+// Cooper (site asistanı): OpenAI anahtarı yalnızca burada. Origin kontrolü, IP/gün sınırları ve toplam tavan chat.js içinde.
 const chatLimiter = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: false, legacyHeaders: false, message: { error: 'rate', message: 'Çok hızlı yazıyorsun, biraz yavaşla ve tekrar dene.' } });
-app.post('/api/chat', chatLimiter, createChatHandler({ getSnapshot: live.snapshot }));
+app.post('/api/chat', chatLimiter, createChatHandler({ getSnapshot: live.snapshot, getStats: () => getStats('30d') }));
 
 // Deezer önizleme linkleri kısa ömürlü; istek anında taze linke yönlendir
 app.get('/api/preview/deezer/:id', publicLimiter, async (req, res) => {
